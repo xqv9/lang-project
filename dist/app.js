@@ -24,22 +24,23 @@ function ic(name){return '<svg class="icon" aria-hidden="true" viewBox="0 0 24 2
 const paw='<svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><ellipse cx="6.7" cy="13" rx="3" ry="4.4" transform="rotate(-25 6.7 13)"/><ellipse cx="13.2" cy="7.9" rx="3" ry="4.4"/><ellipse cx="20.7" cy="8.5" rx="3" ry="4.4" transform="rotate(12 20.7 8.5)"/><ellipse cx="26.1" cy="14.5" rx="2.8" ry="4.1" transform="rotate(25 26.1 14.5)"/><path d="M8 22c1-3 4-8 8-8s7 5 8 9c1 4-2 6-5 5-2-1-4-1-6 0-4 1-7-2-5-6z"/></svg>';
 const photo = name=>'media/'+name+'.jpg';
 const clock = sec=>String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
-const fmt = (at,opts)=>new Intl.DateTimeFormat('zh-HK',opts).format(new Date(at));
-const dateShort=at=>fmt(at,{month:'numeric',day:'numeric'});
-const stamp=at=>dateShort(at)+' · '+fmt(at,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 const findRecord=id=>Care.records().find(r=>r.id===id);
 function btn(label,action,icon='',cls='button',args=''){return '<button type="button" class="'+cls+'" data-act="'+action+'" '+args+'>'+(icon?ic(icon):'')+label+'</button>'}
 function tag(label,icon=''){return '<span class="tag">'+(icon?ic(icon):'')+label+'</span>'}
-const navs=[['home','今天'],['plan','練習計劃'],['records','紀錄']];
+const navs = [['home','首頁'], ['plan','訓練'], ['records','紀錄']];
 function header(){
-  const focus=state.page==='live';
-  const tab=navs.map(([key,name])=>btn(name,'nav',key,'tab'+(state.page===key||key==='records'&&state.page==='detail'?' active':''),'data-page="'+key+'" '+(state.page===key?'aria-current="page"':''))).join('');
-  const online=Object.values(state.online).every(Boolean);
-  $('#header').innerHTML='<div class="bar"><div class="brand"><span class="brand-mark">'+paw+'</span>PawChoice</div>'+(!focus?'<nav class="tabs" aria-label="主導覽">'+tab+'</nav>':'')+'<div class="bar-tools">'+btn('示範資料','demo','demo','mode','aria-label="示範資料與展示控制"')+btn('<i class="light '+(online?'':'off')+'"></i>護理站<span class="long">'+(online?'已連線':'訊號中斷')+'</span>','devices','','status','aria-label="查看護理站連線狀態"')+'</div></div>';
-  $('#mobile-nav').innerHTML=focus?'':tab;
+  const online = Object.values(state.online).every(Boolean);
+  const tab = navs.map(([key,label]) => {
+    const active = state.page===key || (key==='records' && state.page==='detail');
+    return btn(label,'nav',key,'tab'+(active?' active':''),'data-page="'+key+'" '+(active?'aria-current="page"':''));
+  }).join('');
+  $('#header').innerHTML = '<div class="brand">'+paw+'安心爪護</div><div class="tools">'+
+    btn('示範','demo','','mode','aria-label="示範資料與展示控制"')+
+    btn('','devices','link','station '+(online?'':'offline'),'aria-label="護理站連線狀態"')+'</div>';
+  $('#mobile-nav').innerHTML = state.page==='live'?'':tab;
 }
 function page(name){
-  state.page=name; header(); window.scrollTo(0,0);
+  state.page=name; header(); main.scrollTop=0;
   if(name==='home') home();
   if(name==='plan') plan();
   if(name==='records') records();
@@ -49,42 +50,61 @@ function page(name){
 }
 function title(name,tail=''){return '<div class="title-row"><h1>'+name+'</h1>'+tail+'</div>'}
 function home(){
-  const current=Care.selected(), all=Care.records();
-  const latest=all.slice(-2).reverse().map(r=>'<button class="entry" data-act="detail" data-id="'+r.id+'"><img src="'+photo(steps[r.step].photo)+'" alt=""><span><strong>'+steps[r.step].name+'</strong><span class="meta">'+stamp(r.at)+' · '+r.duration+' 秒'+(Care.flagged(r)?' · 疑似退縮':'')+'</span></span><span class="end-icon">'+ic('next')+'</span></button>').join('');
-  const path=steps.map((s,i)=>'<button class="path-item '+(i===current?'active':'')+'" data-act="expand" data-i="'+i+'"><span class="circle">'+(i+1)+'</span>'+s.name+(i===current?'<span class="current">本次練習</span>':'')+'</button>').join('');
-  main.innerHTML=title('糯米的今天','<span class="date">'+ic('calendar')+fmt(Date.now(),{month:'long',day:'numeric',weekday:'short'})+'</span>')+
-    '<section class="hero"><div class="hero-copy"><div class="eyebrow">'+ic('plan')+'擦藥前練習</div><h2>'+steps[current].name+'</h2><div class="hero-step"><span class="steps-mini" aria-hidden="true">'+steps.map((_,i)=>'<i class="'+(i===current?'now':i<current?'past':'')+'"></i>').join('')+'</span>第 '+(current+1)+' 步，共 4 步</div>'+btn('開始練習','start','play')+'</div><div class="hero-photo"><img src="'+photo('step-on')+'" alt="糯米走近家中的感應護理墊和下巴引導座"><span class="tag photo-tag">'+ic('camera')+'糯米的護理站</span></div></section>'+
-    '<div class="home-lower"><section class="box"><div class="section-line"><h2>最近紀錄</h2>'+btn('查看全部','nav','','nav-link','data-page="records"')+'</div>'+latest+'</section><section class="box"><div class="section-line"><h2>練習計劃</h2>'+btn('查看計劃','nav','','nav-link','data-page="plan"')+'</div><div class="path-list">'+path+'</div></section></div>';
+  const current=Care.selected(), last=Care.records().at(-1);
+  const online=Object.values(state.online).every(Boolean);
+  main.innerHTML=`
+    <section class="pet"><img src="${photo('chin')}" alt="糯米"><div><h1>糯米</h1>
+      <button class="connection" data-act="devices"><i class="light ${online?'':'off'}"></i>護理站${online?'已連線':'訊號中斷'}</button></div></section>
+    <div class="section-line"><h2>今日訓練</h2></div>
+    <section class="task"><img class="cover" src="${photo(steps[current].photo)}" alt="${steps[current].name}">
+      <div class="task-body"><div class="between"><b>擦藥前練習</b><span>第 ${current+1}／4 步</span></div>
+      <progress value="${current+1}" max="4" aria-label="目前練習步驟"></progress>
+      <button class="step-link" data-act="expand" data-i="${current}">${ic('plan')}<strong>${steps[current].name}</strong>${ic('next')}</button></div></section>
+    ${btn('開始練習','start','play')}
+    <button class="recent" data-act="detail" data-id="${last.id}">${ic('clock')}<span>上次練習</span><b>${steps[last.step].name} · ${last.duration} 秒</b>${ic('next')}</button>`;
 }
 function plan(){
-  main.innerHTML=title('練習計劃',tag('擦藥前練習','plan'))+'<div class="plan-list">'+steps.map((s,i)=>{
-    const open=i===state.openStep;
-    return '<section class="plan-row"><button class="plan-head" data-act="toggle-step" data-i="'+i+'" aria-expanded="'+open+'"><img src="'+photo(s.photo)+'" alt=""><span class="num">0'+(i+1)+'</span><b>'+s.name+'</b>'+(i===Care.selected()?tag('本次'):'')+'<span class="end-icon">'+ic(open?'down':'next')+'</span></button>'+(open?'<div class="plan-body"><p>'+s.action+'</p><p>'+s.stop+'</p>'+btn('練習這一步','start','play','button','data-i="'+i+'"')+'</div>':'')+'</section>';
-  }).join('')+'</div>';
+  const choice=state.openStep;
+  main.innerHTML=title('擦藥前練習')+'<div class="plan-list">'+steps.map((step,i)=>`
+    <button class="plan-head ${i===choice?'chosen':''}" data-act="toggle-step" data-i="${i}" aria-pressed="${i===choice}">
+      <img src="${photo(step.photo)}" alt=""><span class="num">${i+1}</span><strong>${step.name}</strong>
+      <span class="pick">${i===choice?ic('check'):''}</span></button>`).join('')+'</div>'+
+    btn('開始練習','start','play','button','data-i="'+choice+'"');
 }
 function records(){
-  const all=Care.records(), proposed=Care.nextStep(all), last=all.at(-1);
-  const count=all.filter(r=>r.step===last.step).length, flagged=all.filter(r=>r.step===last.step&&Care.flagged(r)).length;
-  main.innerHTML=title('各步反應',tag(all.length+' 次練習','records'))+'<div class="records-grid"><section><div class="legend"><span><i></i>未標記退縮</span><span><i class="flag">!</i>疑似退縮</span></div><div class="record-list">'+steps.map((s,i)=>{
+  const all=Care.records(), proposed=Care.nextStep(all);
+  const rows=steps.map((step,i)=>{
     const group=all.filter(r=>r.step===i);
-    return '<section class="record-row"><h3>'+s.name+'</h3>'+(group.length?'<div class="dots">'+group.map((r,j)=>'<button class="dot '+(Care.flagged(r)?'flag':'')+'" data-act="detail" data-id="'+r.id+'" aria-label="'+s.name+'，第 '+(j+1)+' 次，'+(Care.flagged(r)?'疑似退縮':'未標記退縮')+'"><i>'+ (Care.flagged(r)?'!':'')+'</i></button>').join('')+'</div><strong class="tally">'+group.filter(Care.flagged).length+'／'+group.length+'</strong>':'<span class="empty">尚未練習</span>')+'</section>';
-  }).join('')+'</div></section><aside class="suggestion"><h2>下次先練</h2><h3>'+steps[proposed].name+'</h3><p>'+steps[last.step].name+'的 '+count+' 次練習中，'+flagged+' 次標記了疑似退縮。'+(proposed<last.step?'先回到較熟悉的動作，等糯米願意再次靠近。':last.review?.discomfort?'下次由自主上墊開始，讓糯米選擇是否靠近。':'下次先重溫這個動作，觀察糯米是否願意繼續。')+'</p>'+btn('採用下次練習','adopt','check','button','data-i="'+proposed+'"')+'</aside></div>';
+    const dots=group.map((r,j)=>{
+      const flagged=Care.flagged(r);
+      return btn('<i>'+(flagged?'!':'')+'</i>','detail','','dot '+(flagged?'flag':''),'data-id="'+r.id+'" aria-label="'+step.name+'，第 '+(j+1)+' 次，'+(flagged?'疑似退縮':'未見退縮')+'"');
+    }).join('');
+    return `<div class="record-row"><b>${step.name}</b><div class="dots">${dots}</div><span class="tally">${group.length?group.filter(Care.flagged).length+'／'+group.length:'未練習'}</span></div>`;
+  }).join('');
+  main.innerHTML=title('行為分析',tag(all.length+' 次練習'))+
+    '<section class="chart"><h2><i class="flag-key"></i>疑似退縮</h2>'+rows+'</section>'+
+    '<section class="suggestion"><img src="'+photo(steps[proposed].photo)+'" alt=""><div>下次練習<h2>'+steps[proposed].name+'</h2></div></section>'+
+    btn('採用下次練習','adopt','check','button','data-i="'+proposed+'"');
 }
 function openDetail(id){state.detail=id;page('detail')}
 function detail(){
   const r=findRecord(state.detail); if(!r){page('records');return}
   const last=r.events.at(-1).k, ended=last==='exit'?'糯米已離墊':last==='lost'?'護理站訊號中斷':'飼主已結束練習';
-  const timeline=r.events.map(e=>{const [name,src,desc]=signals[e.k];return '<li class="'+(['retreat','struggle','lost'].includes(e.k)?'alert':'')+'"><time>'+clock(e.t)+'</time><div><b>'+name+'</b><span class="source">'+src+'</span><p>'+desc+'</p></div></li>'}).join('');
+  const timeline=r.events.map(e=>{const [name,src]=signals[e.k];return '<li class="'+(['retreat','struggle','lost'].includes(e.k)?'alert':'')+'"><time>'+clock(e.t)+'</time><div><b>'+name+'</b><span class="source">'+src+'</span></div></li>'}).join('');
   const review=r.review ? '<p class="review-note">飼主覆核 · '+(Care.flagged(r)?'保留疑似退縮':'未見退縮')+(r.review.discomfort?' · 觀察到不適':'')+'</p>':'';
-  main.innerHTML=title('本次紀錄',tag(steps[r.step].name))+'<div class="summary"><div><strong>'+ended+'</strong><div class="status-line saved">'+ic('check')+'本次練習已記錄</div></div><span class="time">'+r.duration+' 秒</span></div><div class="detail-grid"><section class="detail-box"><div class="section-line"><h2>事件時間線</h2><span class="meta">'+stamp(r.at)+'</span></div><ol class="timeline">'+timeline+'</ol></section><aside class="side-stack"><section class="detail-box"><h2>糯米的反應</h2><p class="review-note">'+(Care.flagged(r)?'本次已標記疑似退縮。':'本次未標記疑似退縮。')+'</p>'+review+btn('補記或更正觀察','review','edit','secondary')+'</section>'+btn('查看各步反應','nav','records','button','data-page="records"')+btn('重播本次紀錄','replay','replay','secondary')+'</aside></div>';
+  main.innerHTML=title('本次紀錄',tag(steps[r.step].name))+
+    '<div class="summary"><span>'+ic('check')+ended+'</span><strong>'+r.duration+' 秒</strong></div>'+
+    '<ol class="timeline">'+timeline+'</ol>'+review+
+    btn('查看各步反應','nav','records','button','data-page="records"')+
+    '<div class="pair">'+btn('更正觀察','review','edit','secondary')+btn('重播','replay','replay','secondary')+'</div>';
 }
 function showDialog(name,body){dialog.innerHTML='<div class="section-line"><h2 id="dialog-title">'+name+'</h2>'+btn('','close','close','close','aria-label="關閉視窗"')+'</div>'+body;if(!dialog.open)dialog.showModal()}
 function closeDialog(){if(dialog.open)dialog.close()}
 function stationPanel(){
   const rows=Object.entries(devices).map(([key,label])=>'<div class="device"><span>'+ic(key)+'<b>'+label+'</b></span><button data-act="switch" data-key="'+key+'" aria-pressed="'+!state.online[key]+'" aria-label="'+label+'，'+(state.online[key]?'已連線，模擬中斷':'已中斷，恢復連線')+'">'+(state.online[key]?'已連線':'已中斷')+'</button></div>').join('');
-  showDialog('護理站連線狀態','<p>點選連線狀態可模擬訊號中斷。</p><div class="device-list">'+rows+'</div>');
+  showDialog('護理站連線狀態','<p>點選裝置可切換連線。</p><div class="device-list">'+rows+'</div>');
 }
-function demoPanel(){showDialog('展示控制','<p>糯米的練習使用預錄影像與模擬訊號。重設後會回到 17 筆紀錄及「短暫接觸」。</p>'+btn('重設示範','reset','replay'))}
+function demoPanel(){showDialog('展示控制','<p>預錄影像 · 模擬訊號<br>初始紀錄 17 次</p>'+btn('重設示範','reset','replay'))}
 function reviewPanel(){
   const r=findRecord(state.detail); if(!r)return;
   showDialog('飼主觀察','<form class="review-form" id="review-form"><label><input name="retreat" type="checkbox" '+(Care.flagged(r)?'checked':'')+'>本次有疑似退縮</label><label><input name="discomfort" type="checkbox" '+(r.review?.discomfort?'checked':'')+'>我觀察到糯米不適</label><button class="button" type="submit">儲存觀察</button></form>');
@@ -98,7 +118,7 @@ function start(step,replay=null){
   clearInterval(state.timer);
   const events=replay?replay.events.map(e=>({...e})):Care.sequence(step,8,step===2);
   state.live={step,replay,events,duration:replay?.duration??8,id:replay?.id??('run-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)),at:Date.now(),second:0,start:performance.now(),rewarded:false,lastKey:'',video:false};
-  if(!replay)Care.select(step);
+  if(!replay){Care.select(step);state.openStep=step}
   page('live');
   const run=state.live;
   const video=$('#clip');
@@ -109,7 +129,7 @@ function start(step,replay=null){
 function defaultClip(r){return r.step===2&&r.events.some(e=>e.k==='retreat'&&e.t===6)&&r.duration===8&&!r.events.some(e=>e.k==='struggle')&&r.events.at(-1).k==='exit'}
 function liveScreen(){
   const r=state.live;
-  main.innerHTML=title(r.replay?'紀錄重播':'練習中',tag(steps[r.step].name))+'<div class="live-grid"><section class="camera"><div class="scene"><img id="still" src="'+photo('step-on')+'" alt="糯米在護理站的示範畫面">'+(defaultClip(r)?'<video id="clip" src="media/station.webm" muted playsinline preload="auto" hidden aria-label="糯米的八秒預錄示範"></video>':'')+'<span class="cam-label">'+ic('camera')+'護理站鏡頭</span><span class="clock" id="elapsed">00:00</span></div><div class="camera-foot" id="signal"></div></section><section class="prompt" id="prompt"><div class="sign" id="sign"></div><h2 id="cue" aria-live="polite"></h2><p id="why"></p><div class="actions" id="live-actions"></div></section></div>';
+  main.innerHTML=title(steps[r.step].name,tag(r.replay?'重播':'第 '+(r.step+1)+'／4 步'))+'<div class="live-grid"><section class="camera"><div class="scene"><img id="still" src="'+photo('step-on')+'" alt="糯米在護理站的示範畫面">'+(defaultClip(r)?'<video id="clip" src="media/station.webm" muted playsinline preload="auto" hidden aria-label="糯米的八秒預錄示範"></video>':'')+'<span class="cam-label">'+ic('camera')+'護理站鏡頭</span><span class="clock" id="elapsed">00:00</span></div><div class="camera-foot" id="signal"></div></section><section class="prompt" id="prompt"><div class="sign" id="sign"></div><h2 id="cue" aria-live="polite"></h2><div class="actions" id="live-actions"></div></section></div>';
   updateLive();
 }
 function updateLive(){
@@ -120,15 +140,13 @@ function updateLive(){
   const image={enter:'step-on',chin:'chin',touch:'contact',wipe:'wipe',retreat:'retreat',struggle:'retreat'}[movement];
   $('#still').src=photo(image);
   const ready=r.step===0||r.step===1&&movement==='chin'||r.step===2&&movement==='touch'||r.step===3&&movement==='wipe';
-  let headline='等糯米靠穩下巴',why='糯米已自主上墊。';
-  if(r.step===0){headline='讓糯米自行停留';why='糯米已踏上感應墊。'}
-  if(movement==='chin'){headline=['','讓糯米靠穩下巴','輕碰一下皮毛','輕輕模擬擦拭'][r.step];why=r.step===1?'糯米已靠穩，看看牠是否願意停留。':'牠仍願意停留時，才進行這個動作。';}
-  if(movement==='touch'||movement==='wipe'){headline='觀察糯米的反應';why=movement==='touch'?'已短暫接觸皮毛。':'已完成一次模擬擦拭。';}
-  if(caution){headline='先移開手';why=movement==='retreat'?'糯米正在退開':'糯米正在扭身';}
-  $('#prompt').classList.toggle('warn',caution);$('#sign').innerHTML=ic(caution?'hand':'mat');
-  $('#cue').textContent=headline;$('#why').textContent=why;
-  $('#signal').innerHTML=ic(caution?'hand':'link')+'<span>'+({enter:'感應墊 · 墊面受壓',chin:'鏡頭 · 下巴靠穩　感應墊 · 持續受壓',touch:'鏡頭 · 手接觸皮毛',wipe:'鏡頭 · 棉片接觸皮毛',retreat:'鏡頭 · 頭部後移　感應墊 · 重心後移',struggle:'鏡頭 · 軀幹扭動　感應墊 · 墊壓波動'}[movement])+'</span>';
-  const reward=!r.replay&&ready&&!caution?btn(r.rewarded?'已發放獎勵':state.online.reward?'確認並給獎勵':'獎勵器已中斷','reward','reward','button',r.rewarded||!state.online.reward?'disabled':''):'';
+  const cues={enter:r.step===0?'讓糯米自行停留':'等糯米靠穩下巴',chin:['','等糯米停留','輕碰一下皮毛','輕輕模擬擦拭'][r.step],touch:'觀察糯米',wipe:'觀察糯米',retreat:'先移開手',struggle:'先移開手'};
+  const readings={enter:[['mat','已上墊']],chin:[['camera','下巴靠穩'],['mat','停留中']],touch:[['camera','接觸皮毛']],wipe:[['camera','棉片接觸']],retreat:[['camera','頭部後移'],['mat','重心後移']],struggle:[['camera','軀幹扭動'],['mat','墊壓波動']]};
+  $('#prompt').classList.toggle('warn',caution);
+  $('#sign').innerHTML=ic(caution?'hand':'check');
+  $('#cue').textContent=cues[movement];
+  $('#signal').innerHTML=readings[movement].map(([source,label])=>'<span aria-label="'+devices[source]+'：'+label+'">'+ic(source)+label+'</span>').join('');
+  const reward=!r.replay&&ready&&!caution?btn(r.rewarded?'已給獎勵':state.online.reward?'給獎勵':'獎勵器已中斷','reward','reward','button',r.rewarded||!state.online.reward?'disabled':''):'';
   $('#live-actions').innerHTML=reward+btn(r.replay?'結束重播':'結束練習','finish','stop','stop-btn');
 }
 function tick(){
@@ -167,7 +185,7 @@ document.addEventListener('click',e=>{
   const a=b.dataset.act, i=Number(b.dataset.i);
   if(a==='nav')page(b.dataset.page);
   if(a==='expand'){state.openStep=i;page('plan')}
-  if(a==='toggle-step'){state.openStep=state.openStep===i?-1:i;plan();main.querySelector('[data-i="'+i+'"]').focus({preventScroll:true})}
+  if(a==='toggle-step'){state.openStep=i;plan();main.querySelector('[data-i="'+i+'"]').focus({preventScroll:true})}
   if(a==='start')start(b.hasAttribute('data-i')?i:Care.selected());
   if(a==='detail')openDetail(b.dataset.id);
   if(a==='replay'){const r=findRecord(state.detail);if(r)start(r.step,r)}
