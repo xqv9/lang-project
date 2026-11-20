@@ -34,9 +34,9 @@ function header(){
     const active = state.page===key || (key==='records' && state.page==='detail');
     return btn(label,'nav',key,'tab'+(active?' active':''),'data-page="'+key+'" '+(active?'aria-current="page"':''));
   }).join('');
-  const titles={plan:'擦藥練習',records:'行為分析',detail:'本次紀錄',live:state.live?steps[state.live.step].name:''};
+  const titles={plan:'擦藥練習',records:'訓練總覽',detail:'本次紀錄',live:state.live?steps[state.live.step].name:''};
   document.querySelector('.phone').dataset.screen=state.page;
-  const back=focus?btn('','finish','next','back','aria-label="結束並返回紀錄"'):btn('','nav','next','back','data-page="'+(state.page==='detail'?'records':'home')+'" aria-label="返回"');
+  const back=state.page==='live'?btn('','finish','next','back','aria-label="結束並返回紀錄"'):btn('','nav','next','back','data-page="'+(state.page==='detail'?'records':'home')+'" aria-label="返回"');
   const menu=btn('示範','demo','','mode','aria-label="示範資料與展示控制"');
   $('#header').innerHTML=state.page==='home'
     ? '<div class="brand">'+paw+'安心爪護</div>'+menu
@@ -73,33 +73,93 @@ function plan(){
       <span class="pick">${i===choice?ic('check'):''}</span></button>`).join('')+'</div>'+
     btn('開始練習','start','play','button','data-i="'+choice+'"');
 }
+const stepArt = ['step-on','art-chin','art-touch','wipe'];
+const shortSteps = ['上墊','靠下巴','輕碰','擦拭'];
+const eventVisual = {
+  enter:['step-on','上墊'], chin:['art-chin','靠穩'], touch:['art-touch','輕碰'],
+  wipe:['wipe','擦拭'], retreat:['art-retreat','退開'], struggle:['art-retreat','扭身'],
+  exit:['exit','離墊'], reward:['reward','獎勵'], end:['stop','停手'], lost:['link','斷線']
+};
+function visualFrame(asset,label){
+  const visual=icons[asset]?ic(asset):'<img src="'+photo(asset)+'" alt="">';
+  return '<span class="frame-image">'+visual+'</span><span>'+label+'</span>';
+}
+function lastReaction(record){
+  const end=record.events.at(-1).k;
+  if(end==='lost')return ['link','訊號中斷'];
+  if(record.review?.discomfort)return ['art-retreat','觀察到不適'];
+  if(Care.flagged(record))return ['art-retreat','疑似退縮'];
+  if(record.events.some(e=>e.k==='struggle'))return ['art-retreat','疑似掙扎'];
+  if(end==='end')return ['stop','已停手'];
+  return [stepArt[record.step],'未見退縮'];
+}
+function trainingRecipe(step){
+  const action=[['step-on','等牠上墊'],['art-chin','等牠靠穩'],['art-touch','輕碰皮毛'],['wipe','模擬擦拭']][step];
+  const frames=step===0?[action,['clock','短暫停留'],['reward','確認獎勵']]:
+    [step===1?['step-on','自主上墊']:['art-chin','靠穩下巴'],action,['reward','確認獎勵']];
+  return frames.map(([asset,label])=>'<div class="recipe-frame">'+visualFrame(asset,label)+'</div>').join('');
+}
 function records(){
-  const all=Care.records(), proposed=Care.nextStep(all);
-  const rows=steps.map((step,i)=>{
+  const all=Care.records(), latest=all.at(-1), proposed=Care.nextStep(all), current=Care.selected();
+  const [asset,reaction]=lastReaction(latest);
+  const path=steps.map((s,i)=>`<li class="${i===current?'here':''}" ${i===current?'aria-current="step"':''}>
+    <i>${i+1}</i><span>${shortSteps[i]}</span></li>`).join('');
+  const bars=steps.map((s,i)=>{
     const group=all.filter(r=>r.step===i);
-    if(!group.length)return '';
-    const dots=group.map((r,j)=>{
-      const flagged=Care.flagged(r);
-      return btn('<i>'+(flagged?'!':'')+'</i>','detail','','dot '+(flagged?'flag':''),'data-id="'+r.id+'" aria-label="'+step.name+'，第 '+(j+1)+' 次，'+(flagged?'疑似退縮':'未見退縮')+'"');
-    }).join('');
-    return `<div class="record-row"><b>${step.name}</b><div class="dots">${dots}</div><span class="tally">${group.length?group.filter(Care.flagged).length+'／'+group.length:'未練習'}</span></div>`;
+    const n=group.filter(Care.flagged).length;
+    return `<button class="risk-row" data-act="history" data-i="${i}" ${group.length?'':'disabled'} aria-label="${s.name}，${n} 次疑似退縮，共 ${group.length} 次練習">
+      <span>${shortSteps[i]}</span><i class="risk-track"><i style="width:${group.length?100*n/group.length:0}%"></i></i>
+      <b>${group.length?n+'／'+group.length:'未練'}</b>${ic('next')}</button>`;
   }).join('');
-  main.innerHTML='<div class="subhead">糯米 · '+all.length+' 次練習</div>'+
-    '<section class="chart"><h2><i class="flag-key"></i>疑似退縮</h2>'+rows+'</section>'+
-    '<section class="suggestion"><img src="'+photo(steps[proposed].photo)+'" alt=""><div>下次練習<h2>'+steps[proposed].name+'</h2></div></section>'+
-    btn('採用練習','adopt','check','button','data-i="'+proposed+'"');
+  const reactionGraphic=icons[asset]?ic(asset):'<img src="'+photo(asset)+'" alt="">';
+  main.innerHTML=`<div class="dashboard">
+    <button class="last-state" data-act="detail" data-id="${latest.id}">
+      <span class="state-graphic">${reactionGraphic}</span><span class="state-label">最近一次 · ${shortSteps[latest.step]}<strong>${reaction}</strong></span>
+      <span class="session-time">${ic('clock')}${latest.duration} 秒</span>${ic('next')}</button>
+    <section class="viz-card next-move"><div class="viz-head"><h2>下次練習</h2><b>${steps[proposed].name}</b></div>
+      <div class="recipe">${trainingRecipe(proposed)}</div>
+      ${btn('採用練習','adopt','check','button','data-i="'+proposed+'"')}</section>
+    <section class="viz-card"><div class="viz-head"><h2>目前進度</h2><b>第 ${current+1}／4 步</b></div>
+      <ol class="stage-track">${path}</ol></section>
+    <section class="viz-card"><div class="viz-head"><h2><i class="flag-key"></i> 疑似退縮佔比</h2><span>${all.length} 次練習</span></div>${bars}</section>
+    </div>`;
+}
+function stepHistory(step){
+  const group=Care.records().filter(r=>r.step===step).reverse();
+  const rows=group.map((r,i)=>{
+    const [,label]=lastReaction(r);
+    return btn('<b>第 '+(group.length-i)+' 次</b><span>'+label+'</span><strong>'+r.duration+' 秒</strong>'+ic('next'),'history-detail','','history-row','data-id="'+r.id+'"');
+  }).join('');
+  const recent=group.slice(0,6).reverse();
+  const maxSeconds=Math.max(1,...recent.map(r=>r.duration));
+  const points=recent.map((r,i)=>({
+    x:recent.length===1?130:18+i*224/(recent.length-1),
+    y:64-42*r.duration/maxSeconds,
+    seconds:r.duration
+  }));
+  const line=points.map(p=>p.x+','+p.y).join(' ');
+  const marks=points.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#526b49"/>
+    <text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="13">${p.seconds}</text>`).join('');
+  const trend=`<figure class="trend"><b>停留時間（秒）</b>
+    <svg viewBox="0 0 260 74" role="img" aria-label="停留秒數，由舊至新：${recent.map(r=>r.duration).join('、')}">
+      <path d="M18 64H242" stroke="#c6cbb8"/><polyline points="${line}" fill="none" stroke="#738a63" stroke-width="3"/>${marks}</svg>
+    <div class="trend-axis"><span>第 ${group.length-recent.length+1} 次</span><span>第 ${group.length} 次</span></div></figure>`;
+  showDialog(steps[step].name,trend+'<div class="history-list">'+rows+'</div>');
 }
 function openDetail(id){state.detail=id;page('detail')}
 function detail(){
   const r=findRecord(state.detail); if(!r){page('records');return}
-  const last=r.events.at(-1).k, ended=last==='exit'?'糯米已離墊':last==='lost'?'護理站訊號中斷':'飼主已結束練習';
-  const timeline=r.events.map(e=>{const [name,src]=signals[e.k];return '<li class="'+(['retreat','struggle','lost'].includes(e.k)?'alert':'')+'"><time>'+clock(e.t)+'</time><div><b>'+name+'</b><span class="source">'+src+'</span></div></li>'}).join('');
-  const review=r.review ? '<p class="review-note">飼主覆核 · '+(Care.flagged(r)?'保留疑似退縮':'未見退縮')+(r.review.discomfort?' · 觀察到不適':'')+'</p>':'';
-  main.innerHTML='<div class="subhead">'+steps[r.step].name+'</div>'+
-    '<div class="summary"><span>'+ic('check')+ended+'</span><strong>'+r.duration+' 秒</strong></div>'+
-    '<ol class="timeline">'+timeline+'</ol>'+review+
-    btn('查看各步反應','nav','records','button','data-page="records"')+
-    '<div class="pair">'+btn('更正觀察','review','edit','secondary')+btn('重播','replay','replay','secondary')+'</div>';
+  const frames=r.events.map(e=>{
+    const [asset,label]=eventVisual[e.k];
+    return '<li class="event-frame '+(['retreat','struggle','lost'].includes(e.k)?'marked':'')+'" aria-label="'+clock(e.t)+' '+signals[e.k][0]+'，'+signals[e.k][1]+'"><time>'+clock(e.t)+'</time>'+visualFrame(asset,label)+'</li>';
+  }).join('');
+  const [asset,reaction]=lastReaction(r);
+  const visual=icons[asset]?ic(asset):'<img src="'+photo(asset)+'" alt="">';
+  main.innerHTML=`<div class="dashboard">
+    <section class="last-state"><span class="state-graphic">${visual}</span><span class="state-label">${steps[r.step].name}<strong>${reaction}</strong></span><span class="session-time">${ic('clock')}${r.duration} 秒</span></section>
+    <section class="viz-card"><div class="viz-head"><h2>動作回放</h2>${btn('重播','replay','replay','mini-replay')}</div><ol class="storyboard">${frames}</ol></section>
+    ${btn('查看訓練總覽','nav','records','button','data-page="records"')}
+    ${btn('更正觀察','review','edit','secondary')}</div>`;
 }
 function showDialog(name,body){dialog.innerHTML='<div class="section-line"><h2 id="dialog-title">'+name+'</h2>'+btn('','close','close','close','aria-label="關閉視窗"')+'</div>'+body;if(!dialog.open)dialog.showModal()}
 function closeDialog(){if(dialog.open)dialog.close()}
@@ -199,6 +259,8 @@ document.addEventListener('click',e=>{
   if(a==='toggle-step'){state.openStep=i;plan();main.querySelector('[data-i="'+i+'"]').focus({preventScroll:true})}
   if(a==='start')start(b.hasAttribute('data-i')?i:Care.selected());
   if(a==='detail')openDetail(b.dataset.id);
+  if(a==='history')stepHistory(i);
+  if(a==='history-detail'){closeDialog();openDetail(b.dataset.id)}
   if(a==='replay'){const r=findRecord(state.detail);if(r)start(r.step,r)}
   if(a==='adopt'){Care.select(i);state.openStep=i;page('home');notice('下次練習已更新')}
   if(a==='camera-view' && state.live){

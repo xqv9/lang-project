@@ -72,3 +72,35 @@ progress{height:11px}.button,.secondary,.stop-btn{border-radius:999px;min-height
 @media(max-width:500px){.phone{width:100%;height:100dvh;border:0;border-radius:0;box-shadow:none}}
 @media(max-height:640px){header{min-height:55px;padding-top:6px}.subhead{margin-bottom:8px}.pet img{width:60px;height:60px}.plan-head{min-height:58px;padding:13px}.scene{height:145px}.section-line{margin-top:14px}.live-grid{gap:4px}}
 
+
+/* Training overview and event storyboard */
+.dashboard {display:grid;gap:10px}
+.viz-card,.last-state {padding:13px 15px;border:1px solid #e8decd;border-radius:21px;background:#fffcf6;box-shadow:0 3px 11px #5b46300a}
+.last-state {display:flex;align-items:center;gap:10px;text-align:left;background:#efe8da}
+.state-graphic,.frame-image {display:grid;place-items:center;overflow:hidden}
+.state-graphic {width:58px;height:58px;border-radius:17px;background:#faf5ed;flex:none}
+.state-graphic img,.frame-image img {width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}
+.state-label {font-size:14px}.state-label strong{display:block;font-size:23px;margin-top:3px}
+.session-time {display:flex;align-items:center;gap:4px;margin-left:auto;white-space:nowrap;font-size:15px}
+.session-time .icon,.last-state>.icon {width:16px}
+.viz-head {display:flex;align-items:center;justify-content:space-between;gap:8px}.viz-head h2 {font-size:18px}
+.viz-head>b,.viz-head>span {font-size:14px;color:#555d48}.next-move{background:#f1f3e7}.next-move .viz-head>b{background:#dce6cb;color:#40563b;padding:4px 10px;border-radius:99px}
+.recipe {display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:6px 0 9px}
+.recipe-frame,.event-frame {display:flex;flex-direction:column;align-items:center;gap:3px;font-size:14px;position:relative}
+.recipe-frame:not(:last-child)::after {content:'›';position:absolute;top:17px;right:-12px;color:#838c71;font-size:22px}
+.frame-image {height:53px;width:66px;border-radius:11px;background:#faf6ed}.frame-image>.icon {height:28px;width:28px;color:#64774e}
+.next-move .button,.dashboard>.button,.dashboard>.secondary {width:100%;min-height:40px}
+.stage-track {list-style:none;display:flex;padding:0;margin:10px 0 1px}
+.stage-track li {position:relative;display:grid;place-items:center;gap:4px;flex:1;font-size:14px}
+.stage-track i {z-index:1;display:grid;place-items:center;border-radius:50%;font-style:normal;background:#f0eadf;border:1px solid #cec8b9;width:25px;height:25px}
+.stage-track li:not(:last-child)::after {content:'';position:absolute;left:50%;right:-50%;height:2px;background:#d1cabb;top:12px}
+.stage-track .here i {background:#5e7350;color:white;outline:3px solid #dce5cd}.stage-track .here span{color:#405537;font-weight:bold}
+.risk-row {display:grid;grid-template-columns:51px 1fr 43px 14px;align-items:center;gap:6px;width:100%;padding:6px 0;text-align:left;font-size:15px}
+.risk-row:first-of-type {margin-top:6px}.risk-row .icon {width:14px;height:14px}.risk-row b {text-align:right;font-size:14px}
+.risk-track {display:block;height:11px;background:#eae5da;border-radius:10px;overflow:hidden}.risk-track i {display:block;height:100%;background:#c57c57;border-radius:10px}.risk-row:disabled .risk-track{background:repeating-linear-gradient(135deg,#eeeae2 0 3px,#faf6ed 3px 6px)}.risk-row:disabled .icon{visibility:hidden}
+.storyboard{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:0;margin:14px 0 0;gap:10px 6px}
+.event-frame {background:#f6f2e9;border-radius:14px;padding:8px 2px}.event-frame.marked{background:#f7dfcd}.event-frame time{font-size:14px}.event-frame .frame-image{width:100%;height:63px;background:transparent}
+.mini-replay,.history-row {display:flex;align-items:center;gap:6px}.mini-replay {font-size:14px;padding:7px;border-radius:20px;background:var(--sage)}.mini-replay .icon{width:15px}
+.history-list {max-height:45dvh;overflow:auto}.history-row {width:100%;padding:12px 1px;text-align:left;border-top:1px solid var(--line);font-size:14px}.history-row strong{margin-left:auto}.history-row .icon{width:15px}
+.trend {margin:12px 0;padding:10px;background:#eff1e5;border-radius:14px}.trend b{font-size:15px}.trend svg{display:block;width:100%;height:78px}.trend-axis{display:flex;justify-content:space-between;font-size:13px}
+
