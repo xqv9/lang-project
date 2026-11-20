@@ -34,9 +34,13 @@ function header(){
     const active = state.page===key || (key==='records' && state.page==='detail');
     return btn(label,'nav',key,'tab'+(active?' active':''),'data-page="'+key+'" '+(active?'aria-current="page"':''));
   }).join('');
-  $('#header').innerHTML = '<div class="brand">'+paw+'安心爪護</div><div class="tools">'+
-    btn('示範','demo','','mode','aria-label="示範資料與展示控制"')+
-    btn('','devices','link','station '+(online?'':'offline'),'aria-label="護理站連線狀態"')+'</div>';
+  const titles={plan:'擦藥練習',records:'行為分析',detail:'本次紀錄',live:state.live?steps[state.live.step].name:''};
+  document.querySelector('.phone').dataset.screen=state.page;
+  const back=focus?btn('','finish','next','back','aria-label="結束並返回紀錄"'):btn('','nav','next','back','data-page="'+(state.page==='detail'?'records':'home')+'" aria-label="返回"');
+  const menu=btn('示範','demo','','mode','aria-label="示範資料與展示控制"');
+  $('#header').innerHTML=state.page==='home'
+    ? '<div class="brand">'+paw+'安心爪護</div>'+menu
+    : back+'<h1>'+titles[state.page]+'</h1>'+menu;
   $('#mobile-nav').innerHTML = state.page==='live'?'':tab;
 }
 function page(name){
@@ -50,24 +54,22 @@ function page(name){
 }
 function title(name,tail=''){return '<div class="title-row"><h1>'+name+'</h1>'+tail+'</div>'}
 function home(){
-  const current=Care.selected(), last=Care.records().at(-1);
+  const current=Care.selected();
   const online=Object.values(state.online).every(Boolean);
   main.innerHTML=`
     <section class="pet"><img src="${photo('chin')}" alt="糯米"><div><h1>糯米</h1>
       <button class="connection" data-act="devices"><i class="light ${online?'':'off'}"></i>護理站${online?'已連線':'訊號中斷'}</button></div></section>
     <div class="section-line"><h2>今日訓練</h2></div>
-    <section class="task"><img class="cover" src="${photo(steps[current].photo)}" alt="${steps[current].name}">
-      <div class="task-body"><div class="between"><b>擦藥前練習</b><span>第 ${current+1}／4 步</span></div>
-      <progress value="${current+1}" max="4" aria-label="目前練習步驟"></progress>
-      <button class="step-link" data-act="expand" data-i="${current}">${ic('plan')}<strong>${steps[current].name}</strong>${ic('next')}</button></div></section>
-    ${btn('開始練習','start','play')}
-    <button class="recent" data-act="detail" data-id="${last.id}">${ic('clock')}<span>上次練習</span><b>${steps[last.step].name} · ${last.duration} 秒</b>${ic('next')}</button>`;
+    <section class="task"><div class="task-body"><div class="between"><b><img class="task-icon" src="${photo('art-chin')}" alt="">擦藥練習</b><span>${current+1}／4</span></div>
+      <progress value="${current+1}" max="4" aria-label="目前練習步驟"></progress></div>
+      <button class="step-link" data-act="expand" data-i="${current}">${paw}<strong>${steps[current].name}</strong>${ic('next')}</button></section>
+    ${btn('開始練習','start','play')}`;
 }
 function plan(){
   const choice=state.openStep;
-  main.innerHTML=title('擦藥前練習')+'<div class="plan-list">'+steps.map((step,i)=>`
+  main.innerHTML='<div class="plan-list">'+steps.map((step,i)=>`
     <button class="plan-head ${i===choice?'chosen':''}" data-act="toggle-step" data-i="${i}" aria-pressed="${i===choice}">
-      <img src="${photo(step.photo)}" alt=""><span class="num">${i+1}</span><strong>${step.name}</strong>
+      <span class="num">${i+1}</span><strong>${step.name}</strong>
       <span class="pick">${i===choice?ic('check'):''}</span></button>`).join('')+'</div>'+
     btn('開始練習','start','play','button','data-i="'+choice+'"');
 }
@@ -75,16 +77,17 @@ function records(){
   const all=Care.records(), proposed=Care.nextStep(all);
   const rows=steps.map((step,i)=>{
     const group=all.filter(r=>r.step===i);
+    if(!group.length)return '';
     const dots=group.map((r,j)=>{
       const flagged=Care.flagged(r);
       return btn('<i>'+(flagged?'!':'')+'</i>','detail','','dot '+(flagged?'flag':''),'data-id="'+r.id+'" aria-label="'+step.name+'，第 '+(j+1)+' 次，'+(flagged?'疑似退縮':'未見退縮')+'"');
     }).join('');
     return `<div class="record-row"><b>${step.name}</b><div class="dots">${dots}</div><span class="tally">${group.length?group.filter(Care.flagged).length+'／'+group.length:'未練習'}</span></div>`;
   }).join('');
-  main.innerHTML=title('行為分析',tag(all.length+' 次練習'))+
+  main.innerHTML='<div class="subhead">糯米 · '+all.length+' 次練習</div>'+
     '<section class="chart"><h2><i class="flag-key"></i>疑似退縮</h2>'+rows+'</section>'+
     '<section class="suggestion"><img src="'+photo(steps[proposed].photo)+'" alt=""><div>下次練習<h2>'+steps[proposed].name+'</h2></div></section>'+
-    btn('採用下次練習','adopt','check','button','data-i="'+proposed+'"');
+    btn('採用練習','adopt','check','button','data-i="'+proposed+'"');
 }
 function openDetail(id){state.detail=id;page('detail')}
 function detail(){
@@ -92,7 +95,7 @@ function detail(){
   const last=r.events.at(-1).k, ended=last==='exit'?'糯米已離墊':last==='lost'?'護理站訊號中斷':'飼主已結束練習';
   const timeline=r.events.map(e=>{const [name,src]=signals[e.k];return '<li class="'+(['retreat','struggle','lost'].includes(e.k)?'alert':'')+'"><time>'+clock(e.t)+'</time><div><b>'+name+'</b><span class="source">'+src+'</span></div></li>'}).join('');
   const review=r.review ? '<p class="review-note">飼主覆核 · '+(Care.flagged(r)?'保留疑似退縮':'未見退縮')+(r.review.discomfort?' · 觀察到不適':'')+'</p>':'';
-  main.innerHTML=title('本次紀錄',tag(steps[r.step].name))+
+  main.innerHTML='<div class="subhead">'+steps[r.step].name+'</div>'+
     '<div class="summary"><span>'+ic('check')+ended+'</span><strong>'+r.duration+' 秒</strong></div>'+
     '<ol class="timeline">'+timeline+'</ol>'+review+
     btn('查看各步反應','nav','records','button','data-page="records"')+
@@ -104,7 +107,7 @@ function stationPanel(){
   const rows=Object.entries(devices).map(([key,label])=>'<div class="device"><span>'+ic(key)+'<b>'+label+'</b></span><button data-act="switch" data-key="'+key+'" aria-pressed="'+!state.online[key]+'" aria-label="'+label+'，'+(state.online[key]?'已連線，模擬中斷':'已中斷，恢復連線')+'">'+(state.online[key]?'已連線':'已中斷')+'</button></div>').join('');
   showDialog('護理站連線狀態','<p>點選裝置可切換連線。</p><div class="device-list">'+rows+'</div>');
 }
-function demoPanel(){showDialog('展示控制','<p>預錄影像 · 模擬訊號<br>初始紀錄 17 次</p>'+btn('重設示範','reset','replay'))}
+function demoPanel(){showDialog('示範設定','<p>預錄影像 · 模擬訊號</p>'+btn('護理站','devices','link','secondary')+btn('重設示範','reset','replay'))}
 function reviewPanel(){
   const r=findRecord(state.detail); if(!r)return;
   showDialog('飼主觀察','<form class="review-form" id="review-form"><label><input name="retreat" type="checkbox" '+(Care.flagged(r)?'checked':'')+'>本次有疑似退縮</label><label><input name="discomfort" type="checkbox" '+(r.review?.discomfort?'checked':'')+'>我觀察到糯米不適</label><button class="button" type="submit">儲存觀察</button></form>');
@@ -117,7 +120,7 @@ function start(step,replay=null){
   }
   clearInterval(state.timer);
   const events=replay?replay.events.map(e=>({...e})):Care.sequence(step,8,step===2);
-  state.live={step,replay,events,duration:replay?.duration??8,id:replay?.id??('run-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)),at:Date.now(),second:0,start:performance.now(),rewarded:false,lastKey:'',video:false};
+  state.live={step,replay,events,duration:replay?.duration??8,id:replay?.id??('run-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)),at:Date.now(),second:0,start:performance.now(),rewarded:false,lastKey:'',video:false,cameraView:false};
   if(!replay){Care.select(step);state.openStep=step}
   page('live');
   const run=state.live;
@@ -129,7 +132,12 @@ function start(step,replay=null){
 function defaultClip(r){return r.step===2&&r.events.some(e=>e.k==='retreat'&&e.t===6)&&r.duration===8&&!r.events.some(e=>e.k==='struggle')&&r.events.at(-1).k==='exit'}
 function liveScreen(){
   const r=state.live;
-  main.innerHTML=title(steps[r.step].name,tag(r.replay?'重播':'第 '+(r.step+1)+'／4 步'))+'<div class="live-grid"><section class="camera"><div class="scene"><img id="still" src="'+photo('step-on')+'" alt="糯米在護理站的示範畫面">'+(defaultClip(r)?'<video id="clip" src="media/station.webm" muted playsinline preload="auto" hidden aria-label="糯米的八秒預錄示範"></video>':'')+'<span class="cam-label">'+ic('camera')+'護理站鏡頭</span><span class="clock" id="elapsed">00:00</span></div><div class="camera-foot" id="signal"></div></section><section class="prompt" id="prompt"><div class="sign" id="sign"></div><h2 id="cue" aria-live="polite"></h2><div class="actions" id="live-actions"></div></section></div>';
+  main.innerHTML='<div class="subhead">'+(r.replay?'重播 · ':'')+'第 '+(r.step+1)+' 步／共 4 步</div>'+
+    '<div class="live-grid"><div class="camera-foot" id="signal"></div><section class="prompt" id="prompt"><div class="sign" id="sign"></div><h2 id="cue" aria-live="polite"></h2></section>'+
+    '<div class="scene"><img id="still" src="'+photo('step-on')+'" alt="護理站預錄畫面">'+(defaultClip(r)?'<video id="clip" src="media/station.webm" muted playsinline preload="auto" hidden></video>':'')+
+    '<img id="art" alt="糯米的動作"><span class="clock" id="elapsed">00:00</span></div>'+
+    '<button class="view-switch" data-act="camera-view">'+ic('camera')+'看鏡頭</button>'+
+    '<div class="actions" id="live-actions"></div></div>';
   updateLive();
 }
 function updateLive(){
@@ -139,6 +147,9 @@ function updateLive(){
   const caution=['retreat','struggle'].includes(movement);
   const image={enter:'step-on',chin:'chin',touch:'contact',wipe:'wipe',retreat:'retreat',struggle:'retreat'}[movement];
   $('#still').src=photo(image);
+  const art=$('#art');
+  art.src=photo(caution?'art-retreat':r.step===0&&movement==='enter'?'step-on':movement==='enter'||movement==='chin'?'art-chin':movement==='wipe'?'wipe':'art-touch');
+  art.hidden=r.cameraView;
   const ready=r.step===0||r.step===1&&movement==='chin'||r.step===2&&movement==='touch'||r.step===3&&movement==='wipe';
   const cues={enter:r.step===0?'讓糯米自行停留':'等糯米靠穩下巴',chin:['','等糯米停留','輕碰一下皮毛','輕輕模擬擦拭'][r.step],touch:'觀察糯米',wipe:'觀察糯米',retreat:'先移開手',struggle:'先移開手'};
   const readings={enter:[['mat','已上墊']],chin:[['camera','下巴靠穩'],['mat','停留中']],touch:[['camera','接觸皮毛']],wipe:[['camera','棉片接觸']],retreat:[['camera','頭部後移'],['mat','重心後移']],struggle:[['camera','軀幹扭動'],['mat','墊壓波動']]};
@@ -190,6 +201,11 @@ document.addEventListener('click',e=>{
   if(a==='detail')openDetail(b.dataset.id);
   if(a==='replay'){const r=findRecord(state.detail);if(r)start(r.step,r)}
   if(a==='adopt'){Care.select(i);state.openStep=i;page('home');notice('下次練習已更新')}
+  if(a==='camera-view' && state.live){
+    state.live.cameraView=!state.live.cameraView;
+    $('#art').hidden=state.live.cameraView;
+    b.innerHTML=ic('camera')+(state.live.cameraView?'看動作':'看鏡頭');
+  }
   if(a==='reward')reward();
   if(a==='finish')finish('end');
   if(a==='review')reviewPanel();
