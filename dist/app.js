@@ -93,58 +93,41 @@ function lastReaction(record){
   if(end==='end')return ['stop','已停手'];
   return [stepArt[record.step],'未見退縮'];
 }
-function trainingRecipe(step){
-  const action=[['step-on','等牠上墊'],['art-chin','等牠靠穩'],['art-touch','輕碰皮毛'],['wipe','模擬擦拭']][step];
-  const frames=step===0?[action,['clock','短暫停留'],['reward','確認獎勵']]:
-    [step===1?['step-on','自主上墊']:['art-chin','靠穩下巴'],action,['reward','確認獎勵']];
-  return frames.map(([asset,label])=>'<div class="recipe-frame">'+visualFrame(asset,label)+'</div>').join('');
+function recordTile(r,index,latest){
+  const flagged=Care.flagged(r), struggle=r.events.some(e=>e.k==='struggle');
+  const interrupted=r.events.some(e=>e.k==='lost'||e.k==='end');
+  const caution=r.review?.discomfort;
+  const tone=flagged?'retreated':interrupted?'interrupted':caution?'discomfort':'unmarked';
+  const mark=flagged?'↶':interrupted?'Ⅱ':caution?'!':'✓';
+  const label=[steps[r.step].name,'第 '+(index+1)+' 次',lastReaction(r)[1],struggle?'疑似掙扎':'',r.duration+' 秒'].filter(Boolean).join('，');
+  const attrs='data-id="'+r.id+'" aria-label="'+label+'" title="'+label+'"';
+  return btn(mark+(struggle?'<sup>≈</sup>':''),'detail','','session-tile '+tone+(latest?' newest':''),attrs);
 }
 function records(){
   const all=Care.records(), latest=all.at(-1), proposed=Care.nextStep(all), current=Care.selected();
   const [asset,reaction]=lastReaction(latest);
-  const path=steps.map((s,i)=>`<li class="${i===current?'here':''}" ${i===current?'aria-current="step"':''}>
-    <i>${i+1}</i><span>${shortSteps[i]}</span></li>`).join('');
-  const bars=steps.map((s,i)=>{
+  const visual=icons[asset]?ic(asset):'<img src="'+photo(asset)+'" alt="">';
+  const rows=steps.map((s,i)=>{
     const group=all.filter(r=>r.step===i);
-    const n=group.filter(Care.flagged).length;
-    return `<button class="risk-row" data-act="history" data-i="${i}" ${group.length?'':'disabled'} aria-label="${s.name}，${n} 次疑似退縮，共 ${group.length} 次練習">
-      <span>${shortSteps[i]}</span><i class="risk-track"><i style="width:${group.length?100*n/group.length:0}%"></i></i>
-      <b>${group.length?n+'／'+group.length:'未練'}</b>${ic('next')}</button>`;
+    const tiles=group.map((r,j)=>recordTile(r,j,r.id===latest.id)).join('');
+    return `<div class="matrix-row"><div class="motion-key"><img src="${photo(stepArt[i])}" alt=""><span>${shortSteps[i]}</span></div>
+      <div class="tile-grid">${tiles||'<span class="no-sessions" aria-label="尚未練習">—</span>'}</div></div>`;
   }).join('');
-  const reactionGraphic=icons[asset]?ic(asset):'<img src="'+photo(asset)+'" alt="">';
-  main.innerHTML=`<div class="dashboard">
-    <button class="last-state" data-act="detail" data-id="${latest.id}">
-      <span class="state-graphic">${reactionGraphic}</span><span class="state-label">最近一次 · ${shortSteps[latest.step]}<strong>${reaction}</strong></span>
-      <span class="session-time">${ic('clock')}${latest.duration} 秒</span>${ic('next')}</button>
-    <section class="viz-card next-move"><div class="viz-head"><h2>下次練習</h2><b>${steps[proposed].name}</b></div>
-      <div class="recipe">${trainingRecipe(proposed)}</div>
+  const extraKeys=[];
+  if(all.some(r=>r.events.some(e=>e.k==='lost'||e.k==='end')&&!Care.flagged(r)))extraKeys.push('<span><i class="interrupted">Ⅱ</i>中斷</span>');
+  if(all.some(r=>r.review?.discomfort&&!Care.flagged(r)))extraKeys.push('<span><i class="discomfort">!</i>不適</span>');
+  main.innerHTML=`<div class="dashboard glyph-board">
+    <button class="last-state" data-act="detail" data-id="${latest.id}"><span class="state-graphic">${visual}</span>
+      <span class="state-label">最近一次<strong>${reaction}</strong></span>
+      <span class="session-time">${ic('clock')}${latest.duration} 秒</span></button>
+    <section class="viz-card session-map"><div class="viz-head"><h2>練習足跡</h2><span>${all.length} 次</span></div>
+      ${rows}<div class="tile-legend"><span><i class="unmarked">✓</i>未標記退縮</span><span><i class="retreated">↶</i>疑似退縮</span><span><i class="struggle-key">≈</i>疑似掙扎</span>${extraKeys.join('')}</div></section>
+    <section class="viz-card route-card"><div class="viz-head"><h2>下一步</h2><span>${current+1} → ${proposed+1}／4</span></div>
+      <div class="route-images"><figure><img src="${photo(proposed===0?'step-on':stepArt[proposed>=2?1:0])}" alt=""><figcaption>${proposed>=2?'靠下巴':'上墊'}</figcaption></figure>
+      ${ic('next')}<figure class="destination"><img src="${photo(stepArt[proposed])}" alt=""><figcaption>${steps[proposed].name}</figcaption></figure>
+      ${ic('next')}<figure><span>${ic('reward')}</span><figcaption>給獎勵</figcaption></figure></div>
       ${btn('採用練習','adopt','check','button','data-i="'+proposed+'"')}</section>
-    <section class="viz-card"><div class="viz-head"><h2>目前進度</h2><b>第 ${current+1}／4 步</b></div>
-      <ol class="stage-track">${path}</ol></section>
-    <section class="viz-card"><div class="viz-head"><h2><i class="flag-key"></i> 疑似退縮佔比</h2><span>${all.length} 次練習</span></div>${bars}</section>
     </div>`;
-}
-function stepHistory(step){
-  const group=Care.records().filter(r=>r.step===step).reverse();
-  const rows=group.map((r,i)=>{
-    const [,label]=lastReaction(r);
-    return btn('<b>第 '+(group.length-i)+' 次</b><span>'+label+'</span><strong>'+r.duration+' 秒</strong>'+ic('next'),'history-detail','','history-row','data-id="'+r.id+'"');
-  }).join('');
-  const recent=group.slice(0,6).reverse();
-  const maxSeconds=Math.max(1,...recent.map(r=>r.duration));
-  const points=recent.map((r,i)=>({
-    x:recent.length===1?130:18+i*224/(recent.length-1),
-    y:64-42*r.duration/maxSeconds,
-    seconds:r.duration
-  }));
-  const line=points.map(p=>p.x+','+p.y).join(' ');
-  const marks=points.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#526b49"/>
-    <text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="13">${p.seconds}</text>`).join('');
-  const trend=`<figure class="trend"><b>停留時間（秒）</b>
-    <svg viewBox="0 0 260 74" role="img" aria-label="停留秒數，由舊至新：${recent.map(r=>r.duration).join('、')}">
-      <path d="M18 64H242" stroke="#c6cbb8"/><polyline points="${line}" fill="none" stroke="#738a63" stroke-width="3"/>${marks}</svg>
-    <div class="trend-axis"><span>第 ${group.length-recent.length+1} 次</span><span>第 ${group.length} 次</span></div></figure>`;
-  showDialog(steps[step].name,trend+'<div class="history-list">'+rows+'</div>');
 }
 function openDetail(id){state.detail=id;page('detail')}
 function detail(){
@@ -259,8 +242,6 @@ document.addEventListener('click',e=>{
   if(a==='toggle-step'){state.openStep=i;plan();main.querySelector('[data-i="'+i+'"]').focus({preventScroll:true})}
   if(a==='start')start(b.hasAttribute('data-i')?i:Care.selected());
   if(a==='detail')openDetail(b.dataset.id);
-  if(a==='history')stepHistory(i);
-  if(a==='history-detail'){closeDialog();openDetail(b.dataset.id)}
   if(a==='replay'){const r=findRecord(state.detail);if(r)start(r.step,r)}
   if(a==='adopt'){Care.select(i);state.openStep=i;page('home');notice('下次練習已更新')}
   if(a==='camera-view' && state.live){

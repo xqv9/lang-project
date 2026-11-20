@@ -104,3 +104,25 @@ progress{height:11px}.button,.secondary,.stop-btn{border-radius:999px;min-height
 .history-list {max-height:45dvh;overflow:auto}.history-row {width:100%;padding:12px 1px;text-align:left;border-top:1px solid var(--line);font-size:14px}.history-row strong{margin-left:auto}.history-row .icon{width:15px}
 .trend {margin:12px 0;padding:10px;background:#eff1e5;border-radius:14px}.trend b{font-size:15px}.trend svg{display:block;width:100%;height:78px}.trend-axis{display:flex;justify-content:space-between;font-size:13px}
 
+
+.glyph-board .last-state {padding:9px 14px}
+.session-map .viz-head {margin-bottom:6px}
+.matrix-row {display:grid;grid-template-columns:61px minmax(0,1fr);gap:10px;align-items:center;padding:5px 0}
+.matrix-row+.matrix-row {border-top:1px solid #eee8db}
+.motion-key {display:flex;flex-direction:column;align-items:center;gap:1px;font-size:13px}
+.motion-key img {width:43px;height:29px;object-fit:cover;border-radius:9px;mix-blend-mode:multiply}
+.tile-grid {display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.session-tile {width:100%;min-height:30px;position:relative;border-radius:9px;font:700 16px system-ui;line-height:1;padding:0}
+.unmarked {background:#c1ddca;color:#295847}.retreated {background:#efb185;color:#79391d}
+.interrupted {background:#c8d7e7;color:#354e68}.discomfort {background:#f0d99c;color:#654a14}
+.session-tile sup,.struggle-key {background:#805684;color:white}
+.session-tile sup {position:absolute;right:-1px;top:-3px;font:bold 12px/14px system-ui;border-radius:6px;padding:0 3px}
+.newest {outline:2px solid #514c38;outline-offset:1px}
+.no-sessions {grid-column:1/-1;border:1px dashed #cecabd;border-radius:9px;text-align:center;color:#888476}
+.tile-legend {display:flex;align-items:center;flex-wrap:wrap;gap:5px 10px;margin-top:7px}
+.tile-legend span {display:flex;align-items:center;gap:3px;font-size:13px}
+.tile-legend i {width:17px;height:17px;font:700 12px/17px system-ui;text-align:center;border-radius:5px}
+.route-card {background:#eff1e4}.route-images {display:grid;grid-template-columns:1fr 12px 1.3fr 12px 1fr;align-items:center;gap:3px;margin:8px 0}
+.route-images figure {margin:0;text-align:center}.route-images img,.route-images figure>span {width:100%;height:49px;object-fit:contain;border-radius:10px;mix-blend-mode:multiply}.route-images figure>span {display:grid;place-items:center}.route-images figure>span svg {width:32px;height:32px;color:#6a7959}.route-images>svg {width:14px;color:#7b826a}.route-images figcaption{font-size:13px}
+.destination {background:#dce6ce;padding:3px;border-radius:13px}.route-card .button {width:100%;min-height:40px}
+
