@@ -126,3 +126,5 @@ progress{height:11px}.button,.secondary,.stop-btn{border-radius:999px;min-height
 .route-images figure {margin:0;text-align:center}.route-images img,.route-images figure>span {width:100%;height:49px;object-fit:contain;border-radius:10px;mix-blend-mode:multiply}.route-images figure>span {display:grid;place-items:center}.route-images figure>span svg {width:32px;height:32px;color:#6a7959}.route-images>svg {width:14px;color:#7b826a}.route-images figcaption{font-size:13px}
 .destination {background:#dce6ce;padding:3px;border-radius:13px}.route-card .button {width:100%;min-height:40px}
 
+.reward-receipt:not(:empty) {position:absolute;left:8px;bottom:8px;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:99px;background:#e2edce;color:#344a31;box-shadow:0 2px 8px #293e291f;font-size:15px}
+.reward-receipt .icon {width:18px;height:18px}

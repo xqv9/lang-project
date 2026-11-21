@@ -78,7 +78,7 @@ const shortSteps = ['上墊','靠下巴','輕碰','擦拭'];
 const eventVisual = {
   enter:['step-on','上墊'], chin:['art-chin','靠穩'], touch:['art-touch','輕碰'],
   wipe:['wipe','擦拭'], retreat:['art-retreat','退開'], struggle:['art-retreat','扭身'],
-  exit:['exit','離墊'], reward:['reward','獎勵'], end:['stop','停手'], lost:['link','斷線']
+  exit:['exit','離墊'], reward:['reward','獎勵已發放'], end:['stop','停手'], lost:['link','斷線']
 };
 function visualFrame(asset,label){
   const visual=icons[asset]?ic(asset):'<img src="'+photo(asset)+'" alt="">';
@@ -125,7 +125,7 @@ function records(){
     <section class="viz-card route-card"><div class="viz-head"><h2>下一步</h2><span>${current+1} → ${proposed+1}／4</span></div>
       <div class="route-images"><figure><img src="${photo(proposed===0?'step-on':stepArt[proposed>=2?1:0])}" alt=""><figcaption>${proposed>=2?'靠下巴':'上墊'}</figcaption></figure>
       ${ic('next')}<figure class="destination"><img src="${photo(stepArt[proposed])}" alt=""><figcaption>${steps[proposed].name}</figcaption></figure>
-      ${ic('next')}<figure><span>${ic('reward')}</span><figcaption>給獎勵</figcaption></figure></div>
+      ${ic('next')}<figure><span>${ic('reward')}</span><figcaption>獎勵器</figcaption></figure></div>
       ${btn('採用練習','adopt','check','button','data-i="'+proposed+'"')}</section>
     </div>`;
 }
@@ -142,7 +142,7 @@ function detail(){
     <section class="last-state"><span class="state-graphic">${visual}</span><span class="state-label">${steps[r.step].name}<strong>${reaction}</strong></span><span class="session-time">${ic('clock')}${r.duration} 秒</span></section>
     <section class="viz-card"><div class="viz-head"><h2>動作回放</h2>${btn('重播','replay','replay','mini-replay')}</div><ol class="storyboard">${frames}</ol></section>
     ${btn('查看訓練總覽','nav','records','button','data-page="records"')}
-    ${btn('更正觀察','review','edit','secondary')}</div>`;
+    </div>`;
 }
 function showDialog(name,body){dialog.innerHTML='<div class="section-line"><h2 id="dialog-title">'+name+'</h2>'+btn('','close','close','close','aria-label="關閉視窗"')+'</div>'+body;if(!dialog.open)dialog.showModal()}
 function closeDialog(){if(dialog.open)dialog.close()}
@@ -151,10 +151,6 @@ function stationPanel(){
   showDialog('護理站連線狀態','<p>點選裝置可切換連線。</p><div class="device-list">'+rows+'</div>');
 }
 function demoPanel(){showDialog('示範設定','<p>預錄影像 · 模擬訊號</p>'+btn('護理站','devices','link','secondary')+btn('重設示範','reset','replay'))}
-function reviewPanel(){
-  const r=findRecord(state.detail); if(!r)return;
-  showDialog('飼主觀察','<form class="review-form" id="review-form"><label><input name="retreat" type="checkbox" '+(Care.flagged(r)?'checked':'')+'>本次有疑似退縮</label><label><input name="discomfort" type="checkbox" '+(r.review?.discomfort?'checked':'')+'>我觀察到糯米不適</label><button class="button" type="submit">儲存觀察</button></form>');
-}
 let noticeTimer;
 function notice(text){$('#notice').textContent=text;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('#notice').textContent='',2200)}
 function start(step,replay=null){
@@ -163,7 +159,7 @@ function start(step,replay=null){
   }
   clearInterval(state.timer);
   const events=replay?replay.events.map(e=>({...e})):Care.sequence(step,8,step===2);
-  state.live={step,replay,events,duration:replay?.duration??8,id:replay?.id??('run-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)),at:Date.now(),second:0,start:performance.now(),rewarded:false,lastKey:'',video:false,cameraView:false};
+  state.live={step,replay,events,duration:replay?.duration??8,id:replay?.id??('run-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)),at:Date.now(),second:0,start:performance.now(),rewardChecked:false,lastKey:'',video:false,cameraView:false};
   if(!replay){Care.select(step);state.openStep=step}
   page('live');
   const run=state.live;
@@ -176,9 +172,9 @@ function defaultClip(r){return r.step===2&&r.events.some(e=>e.k==='retreat'&&e.t
 function liveScreen(){
   const r=state.live;
   main.innerHTML='<div class="subhead">'+(r.replay?'重播 · ':'')+'第 '+(r.step+1)+' 步／共 4 步</div>'+
-    '<div class="live-grid"><div class="camera-foot" id="signal"></div><section class="prompt" id="prompt"><div class="sign" id="sign"></div><h2 id="cue" aria-live="polite"></h2></section>'+
+    '<div class="live-grid"><div class="camera-foot" id="signal" role="status"></div><section class="prompt" id="prompt"><div class="sign" id="sign"></div><h2 id="cue" aria-live="polite"></h2></section>'+
     '<div class="scene"><img id="still" src="'+photo('step-on')+'" alt="護理站預錄畫面">'+(defaultClip(r)?'<video id="clip" src="media/station.webm" muted playsinline preload="auto" hidden></video>':'')+
-    '<img id="art" alt="糯米的動作"><span class="clock" id="elapsed">00:00</span></div>'+
+    '<img id="art" alt="糯米的動作"><span class="reward-receipt" id="receipt" role="status"></span><span class="clock" id="elapsed">00:00</span></div>'+
     '<button class="view-switch" data-act="camera-view">'+ic('camera')+'看鏡頭</button>'+
     '<div class="actions" id="live-actions"></div></div>';
   updateLive();
@@ -193,15 +189,26 @@ function updateLive(){
   const art=$('#art');
   art.src=photo(caution?'art-retreat':r.step===0&&movement==='enter'?'step-on':movement==='enter'||movement==='chin'?'art-chin':movement==='wipe'?'wipe':'art-touch');
   art.hidden=r.cameraView;
-  const ready=r.step===0||r.step===1&&movement==='chin'||r.step===2&&movement==='touch'||r.step===3&&movement==='wipe';
   const cues={enter:r.step===0?'讓糯米自行停留':'等糯米靠穩下巴',chin:['','等糯米停留','輕碰一下皮毛','輕輕模擬擦拭'][r.step],touch:'觀察糯米',wipe:'觀察糯米',retreat:'先移開手',struggle:'先移開手'};
   const readings={enter:[['mat','已上墊']],chin:[['camera','下巴靠穩'],['mat','停留中']],touch:[['camera','接觸皮毛']],wipe:[['camera','棉片接觸']],retreat:[['camera','頭部後移'],['mat','重心後移']],struggle:[['camera','軀幹扭動'],['mat','墊壓波動']]};
   $('#prompt').classList.toggle('warn',caution);
   $('#sign').innerHTML=ic(caution?'hand':'check');
   $('#cue').textContent=cues[movement];
   $('#signal').innerHTML=readings[movement].map(([source,label])=>'<span aria-label="'+devices[source]+'：'+label+'">'+ic(source)+label+'</span>').join('');
-  const reward=!r.replay&&ready&&!caution?btn(r.rewarded?'已給獎勵':state.online.reward?'給獎勵':'獎勵器已中斷','reward','reward','button',r.rewarded||!state.online.reward?'disabled':''):'';
-  $('#live-actions').innerHTML=reward+btn(r.replay?'結束重播':'結束練習','finish','stop','stop-btn');
+  const dispensed=seen.some(e=>e.k==='reward');
+  $('#receipt').innerHTML=dispensed?ic('reward')+'獎勵已發放':'';
+  $('#live-actions').innerHTML=btn(r.replay?'結束重播':'結束練習','finish','stop','stop-btn');
+}
+// In the demo the dispenser acknowledges the first matching sensor event.
+function settleDispenser(run,second){
+  if(run.replay||run.rewardChecked)return;
+  const target=['enter','chin','touch','wipe'][run.step];
+  const trigger=run.events.find(e=>e.k===target && e.t<=second);
+  if(!trigger)return;
+  run.rewardChecked=true;
+  const stopped=run.events.some(e=>e.t<=trigger.t && ['retreat','struggle','lost','exit'].includes(e.k));
+  if(stopped||!Object.values(state.online).every(Boolean))return;
+  run.events.splice(run.events.indexOf(trigger)+1,0,Care.ev(trigger.t,'reward'));
 }
 function tick(){
   const r=state.live;if(!r)return;
@@ -215,8 +222,9 @@ function tick(){
     if(elapsed>=7.75)$('#still').src=photo('exit');
   }
   r.second=Math.min(r.duration,Math.floor(elapsed));$('#elapsed').textContent=clock(r.second);
+  settleDispenser(r,r.second);
   if(r.second>=r.duration){finish();return}
-  const key=r.events.filter(e=>e.t<=r.second).map(e=>e.k).join('/')+r.rewarded;
+  const key=r.events.filter(e=>e.t<=r.second).map(e=>e.k).join('/');
   if(r.lastKey!==key){r.lastKey=key;updateLive()}
 }
 function finish(reason){
@@ -224,15 +232,11 @@ function finish(reason){
   clearInterval(state.timer);state.live=null;closeDialog();
   if(r.replay){openDetail(r.replay.id);return}
   const time=reason?Math.min(r.duration,Math.floor((performance.now()-r.start)/1000)):r.duration;
+  settleDispenser(r,time);
   const events=r.events.filter(e=>e.t<=time&&(!reason||e.k!=='exit'));
   if(reason)events.push(Care.ev(time,reason));
   Care.save({id:r.id,step:r.step,at:r.at,duration:time,events});openDetail(r.id);
-}
-function reward(){
-  const r=state.live;if(!r||r.replay||r.rewarded||!state.online.reward)return;
-  tick();if(!state.live)return;
-  const control=$('[data-act="reward"]');if(!control||control.disabled)return;
-  r.events.push(Care.ev(r.second,'reward'));r.events.sort((a,b)=>a.t-b.t);r.rewarded=true;updateLive();notice('獎勵器已發放一份零食');
+  if(!reason)notice('糯米已離墊');
 }
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
@@ -249,14 +253,14 @@ document.addEventListener('click',e=>{
     $('#art').hidden=state.live.cameraView;
     b.innerHTML=ic('camera')+(state.live.cameraView?'看動作':'看鏡頭');
   }
-  if(a==='reward')reward();
   if(a==='finish')finish('end');
-  if(a==='review')reviewPanel();
   if(a==='devices')stationPanel();
   if(a==='demo')demoPanel();
   if(a==='close')closeDialog();
   if(a==='switch'){
-    const k=b.dataset.key;state.online[k]=!state.online[k];
+    const k=b.dataset.key;
+    if(state.live)tick();
+    state.online[k]=!state.online[k];
     if(state.live&&!state.live.replay&&!state.online[k]&&k!=='reward'){
       finish('lost');showDialog('訊號中斷，請先停手','<p>'+devices[k]+'已中斷。當次練習已停止並儲存。</p>'+btn('查看本次紀錄','close','check'));
     }else{header();if(state.live)updateLive();stationPanel()}
@@ -264,11 +268,6 @@ document.addEventListener('click',e=>{
   if(a==='reset'){clearInterval(state.timer);state.live=null;Care.reset();state.openStep=2;Object.keys(devices).forEach(k=>state.online[k]=true);closeDialog();page('home');notice('已還原 17 筆示範紀錄')}
 });
 dialog.addEventListener('click',e=>{if(e.target===dialog){const rect=dialog.getBoundingClientRect();if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)closeDialog()}});
-document.addEventListener('submit',e=>{
-  if(e.target.id!=='review-form')return;
-  e.preventDefault();const r=findRecord(state.detail);if(!r)return;
-  r.review={retreat:e.target.elements.retreat.checked,discomfort:e.target.elements.discomfort.checked};Care.save(r);closeDialog();detail();notice('飼主觀察已儲存');
-});
 window.addEventListener('storage',()=>{if(!state.live&&!dialog.open){if(state.page==='detail'&&!findRecord(state.detail))page('records');else page(state.page)}});
 page('home');
 if(!Care.durable)notice('本次示範紀錄會保留至關閉頁面');
